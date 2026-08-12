@@ -1,0 +1,42 @@
+{
+  "name": "pi-notify",
+  "version": "1.4.0",
+  "description": "Desktop notifications when Pi is settled and ready for input",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "notifications",
+    "osc"
+  ],
+  "author": "ferologics",
+  "contributors": [
+    "zheminlin266"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zheminlin266/pi-notify.git"
+  },
+  "homepage": "https://github.com/zheminlin266/pi-notify#readme",
+  "bugs": {
+    "url": "https://github.com/zheminlin266/pi-notify/issues"
+  },
+  "files": [
+    "index.ts",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE",
+    "demo.gif",
+    "demo.mp4"
+  ],
+  "pi": {
+    "extensions": [
+      "index.ts"
+    ],
+    "video": "https://raw.githubusercontent.com/zheminlin266/pi-notify/main/demo.mp4"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}
