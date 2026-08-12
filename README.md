@@ -4,8 +4,6 @@
 
 Native desktop notifications when [Pi](https://pi.dev) has finished working and is ready for your next input.
 
-![pi-notify demo](demo.gif)
-
 ## What's New in This Version
 
 Compared with the earlier `agent_end`-only behavior described by the upstream README, this maintained version adds and documents:
