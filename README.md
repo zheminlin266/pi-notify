@@ -6,6 +6,16 @@ Native desktop notifications when [Pi](https://pi.dev) has finished working and 
 
 ![pi-notify demo](demo.gif)
 
+## What's New in This Version
+
+Compared with the earlier `agent_end`-only behavior described by the upstream README, this maintained version adds and documents:
+
+- **Settled-only notifications** — notification is delayed until Pi emits `agent_settled`, so automatic retries, context compaction, and queued follow-ups can finish first.
+- **Outcome-aware messages** — normal completion shows “Ready for input,” while an unrecoverable agent failure shows a dedicated error message.
+- **Correct lifecycle documentation** — the README now explains that `agent_end` records the result and `agent_settled` triggers the notification.
+
+Terminal protocol detection, tmux passthrough, and the optional sound hook are inherited from the original project.
+
 ## Highlights
 
 - **Notifies only when Pi is truly settled** — waits until retries, context compaction, and queued follow-ups have finished.
