@@ -104,8 +104,12 @@ export default function (pi: ExtensionAPI) {
         }
     });
 
-    pi.on("agent_settled", async () => {
-        notify("Pi", finalError ? "Stopped after an unrecoverable error" : "Ready for input");
+    pi.on("agent_settled", async (_event, ctx) => {
+        const message = finalError ? "Stopped after an unrecoverable error" : "Ready for input";
         finalError = false;
+
+        if (!ctx.hasUI) return;
+
+        notify("Pi", message);
     });
 }
