@@ -10,6 +10,7 @@ Compared with the earlier `agent_end`-only behavior described by the upstream RE
 
 - **Settled-only notifications** — notification is delayed until Pi emits `agent_settled`, so automatic retries, context compaction, and queued follow-ups can finish first.
 - **Outcome-aware messages** — normal completion shows “Ready for input,” while an unrecoverable agent failure shows a dedicated error message.
+- **User-facing sessions only** — settled sessions without an attached UI, including headless subagent children, do not emit a desktop notification.
 - **Correct lifecycle documentation** — the README now explains that `agent_end` records the result and `agent_settled` triggers the notification.
 
 Terminal protocol detection, tmux passthrough, and the optional sound hook are inherited from the original project.
@@ -18,6 +19,7 @@ Terminal protocol detection, tmux passthrough, and the optional sound hook are i
 
 - **Notifies only when Pi is truly settled** — waits until retries, context compaction, and queued follow-ups have finished.
 - **Error-aware messages** — distinguishes a normal completion from an unrecoverable agent error.
+- **No empty subagent notifications** — only settled sessions with an attached user UI can notify.
 - **Automatic terminal detection** — selects Windows toast, Kitty OSC 99, iTerm2 OSC 9, or OSC 777 without configuration.
 - **tmux support** — wraps OSC notifications in tmux passthrough sequences automatically.
 - **Optional sound hook** — runs your command in the background without blocking Pi.
@@ -72,6 +74,8 @@ Add the setting to your shell profile to keep it across sessions. Leave it unset
 ## How it works
 
 The extension records the final assistant result on Pi's `agent_end` event, but deliberately waits for `agent_settled` before notifying. This prevents premature notifications during automatic retries, context compaction, or queued follow-up prompts.
+
+Before notifying, it checks Pi's public `ctx.hasUI` flag. Headless sessions, such as subagent child sessions without an attached UI, are ignored, while a user-facing parent session can still notify after it has displayed the result and settled.
 
 At notification time it detects the current terminal from environment variables, emits the appropriate escape sequence or Windows toast, and then starts the optional sound hook.
 
