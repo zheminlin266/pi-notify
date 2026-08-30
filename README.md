@@ -12,8 +12,9 @@ Compared with the earlier `agent_end`-only behavior described by the upstream RE
 - **Outcome-aware messages** — normal completion shows “Ready for input,” while an unrecoverable agent failure shows a dedicated error message.
 - **User-facing sessions only** — settled sessions without an attached UI, including headless subagent children, do not emit a desktop notification.
 - **Correct lifecycle documentation** — the README now explains that `agent_end` records the result and `agent_settled` triggers the notification.
+- **Outcome-specific sound hooks** — completion and interruption can use separate commands, while `PI_NOTIFY_SOUND_CMD` remains the fallback for existing configurations.
 
-Terminal protocol detection, tmux passthrough, and the optional sound hook are inherited from the original project.
+Terminal protocol detection and tmux passthrough are inherited from the original project. This maintained version extends the original optional sound hook with separate completion and interruption commands.
 
 ## Highlights
 
@@ -22,7 +23,7 @@ Terminal protocol detection, tmux passthrough, and the optional sound hook are i
 - **No empty subagent notifications** — only settled sessions with an attached user UI can notify.
 - **Automatic terminal detection** — selects Windows toast, Kitty OSC 99, iTerm2 OSC 9, or OSC 777 without configuration.
 - **tmux support** — wraps OSC notifications in tmux passthrough sequences automatically.
-- **Optional sound hook** — runs your command in the background without blocking Pi.
+- **Optional sound hooks** — runs commands in the background without blocking Pi, with separate sounds for completion and interruption.
 - **Zero runtime dependencies** — one small TypeScript extension.
 
 ## Compatibility
@@ -56,20 +57,27 @@ Restart Pi after installation.
 
 ## Optional sound
 
-Set `PI_NOTIFY_SOUND_CMD` to any shell command. It is spawned as a detached background process after the desktop notification.
+Set these environment variables to any shell command. Each command is spawned as a detached background process after the desktop notification:
+
+- `PI_NOTIFY_SOUND_COMPLETE_CMD` — played when the conversation completes normally.
+- `PI_NOTIFY_SOUND_INTERRUPTED_CMD` — played when the task is interrupted, such as with `Esc`.
+- `PI_NOTIFY_SOUND_CMD` — generic fallback when the matching specific variable is unset; this preserves the old configuration.
 
 ```bash
 # macOS
-export PI_NOTIFY_SOUND_CMD='afplay /System/Library/Sounds/Glass.aiff'
+export PI_NOTIFY_SOUND_COMPLETE_CMD='afplay /System/Library/Sounds/Glass.aiff'
+export PI_NOTIFY_SOUND_INTERRUPTED_CMD='afplay /System/Library/Sounds/Basso.aiff'
 
 # Linux
-export PI_NOTIFY_SOUND_CMD='paplay /usr/share/sounds/freedesktop/stereo/complete.oga'
+export PI_NOTIFY_SOUND_COMPLETE_CMD='paplay /usr/share/sounds/freedesktop/stereo/complete.oga'
+export PI_NOTIFY_SOUND_INTERRUPTED_CMD='paplay /usr/share/sounds/freedesktop/stereo/dialog-error.oga'
 
-# Windows PowerShell
-$env:PI_NOTIFY_SOUND_CMD = 'powershell -c "[console]::beep(880,180)"'
+# Windows PowerShell (requires ffplay)
+$env:PI_NOTIFY_SOUND_COMPLETE_CMD = 'ffplay -nodisp -autoexit -loglevel quiet -f lavfi -i "sine=frequency=600:duration=0.12[s1];anullsrc=r=44100:cl=mono:d=0.08[silence];sine=frequency=600:duration=0.12[s2];[s1][silence][s2]concat=n=3:v=0:a=1" -af "volume=1.0"'
+$env:PI_NOTIFY_SOUND_INTERRUPTED_CMD = 'ffplay -nodisp -autoexit -loglevel quiet -f lavfi -i "sine=frequency=220:duration=0.40" -af "volume=1.2"'
 ```
 
-Add the setting to your shell profile to keep it across sessions. Leave it unset for silent notifications.
+Add the settings to your shell profile to keep them across sessions. Leave them unset for silent notifications.
 
 ## How it works
 
@@ -77,7 +85,7 @@ The extension records the final assistant result on Pi's `agent_end` event, but 
 
 Before notifying, it checks Pi's public `ctx.hasUI` flag. Headless sessions, such as subagent child sessions without an attached UI, are ignored, while a user-facing parent session can still notify after it has displayed the result and settled.
 
-At notification time it detects the current terminal from environment variables, emits the appropriate escape sequence or Windows toast, and then starts the optional sound hook.
+At notification time it detects the current terminal from environment variables, emits the appropriate escape sequence or Windows toast, and then starts the outcome-specific sound hook. Unrecoverable errors currently use the generic `PI_NOTIFY_SOUND_CMD` fallback.
 
 ## Development
 

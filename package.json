@@ -1,6 +1,6 @@
 {
   "name": "pi-notify",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Desktop notifications when Pi is settled and ready for input",
   "keywords": [
     "pi-package",

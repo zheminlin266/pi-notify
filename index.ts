@@ -8,7 +8,8 @@
  * - OSC 99: Kitty
  * - tmux passthrough wrapper for OSC notifications
  * - Windows toast: Windows Terminal (WSL)
- * - Optional sound hook via PI_NOTIFY_SOUND_CMD
+ * - Optional sound hooks via PI_NOTIFY_SOUND_CMD, PI_NOTIFY_SOUND_COMPLETE_CMD,
+ *   and PI_NOTIFY_SOUND_INTERRUPTED_CMD
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -57,8 +58,15 @@ function notifyWindows(title: string, body: string): void {
     execFile("powershell.exe", ["-NoProfile", "-Command", windowsToastScript(title, body)]);
 }
 
-function runSoundHook(): void {
-    const command = process.env.PI_NOTIFY_SOUND_CMD?.trim();
+type NotificationOutcome = "complete" | "interrupted" | "error";
+
+function runSoundHook(outcome: NotificationOutcome): void {
+    const specificCommand = outcome === "complete"
+        ? process.env.PI_NOTIFY_SOUND_COMPLETE_CMD
+        : outcome === "interrupted"
+            ? process.env.PI_NOTIFY_SOUND_INTERRUPTED_CMD
+            : undefined;
+    const command = specificCommand?.trim() || process.env.PI_NOTIFY_SOUND_CMD?.trim();
     if (!command) return;
 
     try {
@@ -74,7 +82,7 @@ function runSoundHook(): void {
     }
 }
 
-function notify(title: string, body: string): void {
+function notify(title: string, body: string, outcome: NotificationOutcome): void {
     const isIterm2 = process.env.TERM_PROGRAM === "iTerm.app" || Boolean(process.env.ITERM_SESSION_ID);
 
     if (process.env.WT_SESSION) {
@@ -87,7 +95,7 @@ function notify(title: string, body: string): void {
         notifyOSC777(title, body);
     }
 
-    runSoundHook();
+    runSoundHook(outcome);
 }
 
 export default function (pi: ExtensionAPI) {
@@ -95,21 +103,32 @@ export default function (pi: ExtensionAPI) {
     // provider errors that Pi will automatically retry. Wait for
     // `agent_settled`, which means retries, compaction, and queued follow-ups
     // are all finished before notifying.
-    let finalError = false;
+    let finalOutcome: NotificationOutcome = "complete";
 
     pi.on("agent_end", async (event) => {
         const assistant = [...event.messages].reverse().find((message) => message.role === "assistant");
-        if (assistant) {
-            finalError = assistant.stopReason === "error";
+        if (!assistant) return;
+
+        if (assistant.stopReason === "aborted") {
+            finalOutcome = "interrupted";
+        } else if (assistant.stopReason === "error") {
+            finalOutcome = "error";
+        } else {
+            finalOutcome = "complete";
         }
     });
 
     pi.on("agent_settled", async (_event, ctx) => {
-        const message = finalError ? "Stopped after an unrecoverable error" : "Ready for input";
-        finalError = false;
+        const outcome = finalOutcome;
+        const message = outcome === "error"
+            ? "Stopped after an unrecoverable error"
+            : outcome === "interrupted"
+                ? "Task interrupted"
+                : "Ready for input";
+        finalOutcome = "complete";
 
         if (!ctx.hasUI) return;
 
-        notify("Pi", message);
+        notify("Pi", message, outcome);
     });
 }

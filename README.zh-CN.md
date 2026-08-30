@@ -12,8 +12,9 @@
 - **根据结果显示不同消息**：正常完成时显示“Ready for input”，发生不可恢复的 agent 错误时显示专用错误消息。
 - **仅通知面向用户的会话**：没有绑定 UI 的已完成会话（包括无头 subagent 子会话）不会发送桌面通知。
 - **修正生命周期说明**：README 现在明确说明由 `agent_end` 记录结果、由 `agent_settled` 触发通知。
+- **按结果区分声音提醒**：正常完成和中断可使用不同命令，`PI_NOTIFY_SOUND_CMD` 继续作为旧配置的通用回退。
 
-终端协议检测、tmux passthrough 和可选声音提醒继承自原项目。
+终端协议检测和 tmux passthrough 继承自原项目；本维护版本将原有可选声音提醒扩展为支持正常完成和中断分别设置命令。
 
 ## 特色功能
 
@@ -22,7 +23,7 @@
 - **不再产生空的 subagent 通知**：只有绑定了用户 UI 的已完成会话才会通知。
 - **自动识别终端**：无需配置即可选择 Windows Toast、Kitty OSC 99、iTerm2 OSC 9 或 OSC 777。
 - **支持 tmux**：自动包装 tmux passthrough 序列。
-- **可选声音提醒**：在后台执行自定义声音命令，不阻塞 Pi。
+- **可选声音提醒**：在后台执行自定义声音命令，不阻塞 Pi；可为正常完成和中断分别设置音效。
 - **零运行时依赖**：实现仅为一个轻量 TypeScript 扩展。
 
 ## 兼容性
@@ -56,17 +57,24 @@ pi install git:github.com/zheminlin266/pi-notify
 
 ## 可选声音提醒
 
-通过 `PI_NOTIFY_SOUND_CMD` 设置任意 shell 命令。桌面通知发出后，该命令会作为独立后台进程运行。
+通过以下环境变量设置任意 shell 命令。桌面通知发出后，命令会作为独立后台进程运行：
+
+- `PI_NOTIFY_SOUND_COMPLETE_CMD`：对话正常输出结束时播放。
+- `PI_NOTIFY_SOUND_INTERRUPTED_CMD`：任务被中断（例如按 `Esc`）时播放。
+- `PI_NOTIFY_SOUND_CMD`：通用回退音效；当对应的特定变量未设置时使用，也保持旧配置兼容。
 
 ```bash
 # macOS
-export PI_NOTIFY_SOUND_CMD='afplay /System/Library/Sounds/Glass.aiff'
+export PI_NOTIFY_SOUND_COMPLETE_CMD='afplay /System/Library/Sounds/Glass.aiff'
+export PI_NOTIFY_SOUND_INTERRUPTED_CMD='afplay /System/Library/Sounds/Basso.aiff'
 
 # Linux
-export PI_NOTIFY_SOUND_CMD='paplay /usr/share/sounds/freedesktop/stereo/complete.oga'
+export PI_NOTIFY_SOUND_COMPLETE_CMD='paplay /usr/share/sounds/freedesktop/stereo/complete.oga'
+export PI_NOTIFY_SOUND_INTERRUPTED_CMD='paplay /usr/share/sounds/freedesktop/stereo/dialog-error.oga'
 
-# Windows PowerShell
-$env:PI_NOTIFY_SOUND_CMD = 'powershell -c "[console]::beep(880,180)"'
+# Windows PowerShell（需要已安装 ffplay）
+$env:PI_NOTIFY_SOUND_COMPLETE_CMD = 'ffplay -nodisp -autoexit -loglevel quiet -f lavfi -i "sine=frequency=600:duration=0.12[s1];anullsrc=r=44100:cl=mono:d=0.08[silence];sine=frequency=600:duration=0.12[s2];[s1][silence][s2]concat=n=3:v=0:a=1" -af "volume=1.0"'
+$env:PI_NOTIFY_SOUND_INTERRUPTED_CMD = 'ffplay -nodisp -autoexit -loglevel quiet -f lavfi -i "sine=frequency=220:duration=0.40" -af "volume=1.2"'
 ```
 
 如需长期生效，请写入 shell 配置文件；不设置时仅发送静默桌面通知。
@@ -77,7 +85,7 @@ $env:PI_NOTIFY_SOUND_CMD = 'powershell -c "[console]::beep(880,180)"'
 
 通知前，扩展会检查 Pi 公开的 `ctx.hasUI` 标志。无头会话（例如没有绑定 UI 的 subagent 子会话）会被忽略；面向用户的父会话显示结果并完全空闲后仍可正常通知。
 
-通知时会根据环境变量识别终端，输出相应转义序列或 Windows Toast，然后启动可选声音命令。
+通知时会根据环境变量识别终端，输出相应转义序列或 Windows Toast，然后根据结果启动对应的可选声音命令。不可恢复错误目前使用通用 `PI_NOTIFY_SOUND_CMD` 回退音效。
 
 ## pi.dev 状态
 
