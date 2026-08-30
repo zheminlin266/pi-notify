@@ -13,6 +13,7 @@
 - **仅通知面向用户的会话**：没有绑定 UI 的已完成会话（包括无头 subagent 子会话）不会发送桌面通知。
 - **修正生命周期说明**：README 现在明确说明由 `agent_end` 记录结果、由 `agent_settled` 触发通知。
 - **按结果区分声音提醒**：正常完成和中断可使用不同命令，`PI_NOTIFY_SOUND_CMD` 继续作为旧配置的通用回退。
+- **Windows 音效不弹命令窗口**：声音命令在后台启动时会隐藏 Windows 控制台窗口。
 
 终端协议检测和 tmux passthrough 继承自原项目；本维护版本将原有可选声音提醒扩展为支持正常完成和中断分别设置命令。
 
@@ -57,7 +58,7 @@ pi install git:github.com/zheminlin266/pi-notify
 
 ## 可选声音提醒
 
-通过以下环境变量设置任意 shell 命令。桌面通知发出后，命令会作为独立后台进程运行：
+通过以下环境变量设置任意 shell 命令。桌面通知发出后，命令会作为独立后台进程运行；在 Windows 上不会显示控制台窗口：
 
 - `PI_NOTIFY_SOUND_COMPLETE_CMD`：对话正常输出结束时播放。
 - `PI_NOTIFY_SOUND_INTERRUPTED_CMD`：任务被中断（例如按 `Esc`）时播放。
@@ -85,7 +86,7 @@ $env:PI_NOTIFY_SOUND_INTERRUPTED_CMD = 'ffplay -nodisp -autoexit -loglevel quiet
 
 通知前，扩展会检查 Pi 公开的 `ctx.hasUI` 标志。无头会话（例如没有绑定 UI 的 subagent 子会话）会被忽略；面向用户的父会话显示结果并完全空闲后仍可正常通知。
 
-通知时会根据环境变量识别终端，输出相应转义序列或 Windows Toast，然后根据结果启动对应的可选声音命令。不可恢复错误目前使用通用 `PI_NOTIFY_SOUND_CMD` 回退音效。
+通知时会根据环境变量识别终端，输出相应转义序列或 Windows Toast，然后根据结果启动对应的可选声音命令。不可恢复错误目前使用通用 `PI_NOTIFY_SOUND_CMD` 回退音效。Windows 声音命令使用隐藏的控制台进程启动，不会在桌面上闪现命令窗口。
 
 ## pi.dev 状态
 

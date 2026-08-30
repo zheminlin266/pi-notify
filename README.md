@@ -13,6 +13,7 @@ Compared with the earlier `agent_end`-only behavior described by the upstream RE
 - **User-facing sessions only** — settled sessions without an attached UI, including headless subagent children, do not emit a desktop notification.
 - **Correct lifecycle documentation** — the README now explains that `agent_end` records the result and `agent_settled` triggers the notification.
 - **Outcome-specific sound hooks** — completion and interruption can use separate commands, while `PI_NOTIFY_SOUND_CMD` remains the fallback for existing configurations.
+- **Hidden Windows sound console** — Windows console windows are hidden when sound commands run in the background.
 
 Terminal protocol detection and tmux passthrough are inherited from the original project. This maintained version extends the original optional sound hook with separate completion and interruption commands.
 
@@ -57,7 +58,7 @@ Restart Pi after installation.
 
 ## Optional sound
 
-Set these environment variables to any shell command. Each command is spawned as a detached background process after the desktop notification:
+Set these environment variables to any shell command. Each command is spawned as a detached background process after the desktop notification; on Windows, its console window is hidden:
 
 - `PI_NOTIFY_SOUND_COMPLETE_CMD` — played when the conversation completes normally.
 - `PI_NOTIFY_SOUND_INTERRUPTED_CMD` — played when the task is interrupted, such as with `Esc`.
@@ -85,7 +86,7 @@ The extension records the final assistant result on Pi's `agent_end` event, but 
 
 Before notifying, it checks Pi's public `ctx.hasUI` flag. Headless sessions, such as subagent child sessions without an attached UI, are ignored, while a user-facing parent session can still notify after it has displayed the result and settled.
 
-At notification time it detects the current terminal from environment variables, emits the appropriate escape sequence or Windows toast, and then starts the outcome-specific sound hook. Unrecoverable errors currently use the generic `PI_NOTIFY_SOUND_CMD` fallback.
+At notification time it detects the current terminal from environment variables, emits the appropriate escape sequence or Windows toast, and then starts the outcome-specific sound hook. On Windows, the sound command uses a hidden console process so no command window flashes on the desktop. Unrecoverable errors currently use the generic `PI_NOTIFY_SOUND_CMD` fallback.
 
 ## Development
 

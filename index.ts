@@ -75,6 +75,7 @@ function runSoundHook(outcome: NotificationOutcome): void {
             shell: true,
             detached: true,
             stdio: "ignore",
+            windowsHide: process.platform === "win32",
         });
         child.unref();
     } catch {
