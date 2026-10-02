@@ -14,7 +14,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-function windowsToastScript(title: string, body: string): string {
+function windowsToastScript(title: string, body: string, silent: boolean): string {
     const type = "Windows.UI.Notifications";
     const mgr = `[${type}.ToastNotificationManager, ${type}, ContentType = WindowsRuntime]`;
     const template = `[${type}.ToastTemplateType]::ToastText01`;
@@ -23,6 +23,11 @@ function windowsToastScript(title: string, body: string): string {
         `${mgr} > $null`,
         `$xml = [${type}.ToastNotificationManager]::GetTemplateContent(${template})`,
         `$xml.GetElementsByTagName('text')[0].AppendChild($xml.CreateTextNode('${body}')) > $null`,
+        ...(silent ? [
+            `$audio = $xml.CreateElement('audio')`,
+            `$audio.SetAttribute('silent', 'true')`,
+            `$xml.DocumentElement.AppendChild($audio) > $null`,
+        ] : []),
         `[${type}.ToastNotificationManager]::CreateToastNotifier('${title}').Show(${toast})`,
     ].join("; ");
 }
@@ -53,30 +58,37 @@ function notifyOSC99(title: string, body: string): void {
     process.stdout.write(wrapForTmux(bodySequence));
 }
 
-function notifyWindows(title: string, body: string): void {
+function notifyWindows(title: string, body: string, silent: boolean): void {
     const { execFile } = require("node:child_process");
-    execFile("powershell.exe", ["-NoProfile", "-Command", windowsToastScript(title, body)]);
+    execFile("powershell.exe", ["-NoProfile", "-Command", windowsToastScript(title, body, silent)], {
+        windowsHide: process.platform === "win32",
+    });
 }
 
 type NotificationOutcome = "complete" | "interrupted" | "error";
 
-function runSoundHook(outcome: NotificationOutcome): void {
+function soundCommand(outcome: NotificationOutcome): string | undefined {
     const specificCommand = outcome === "complete"
         ? process.env.PI_NOTIFY_SOUND_COMPLETE_CMD
         : outcome === "interrupted"
             ? process.env.PI_NOTIFY_SOUND_INTERRUPTED_CMD
             : undefined;
-    const command = specificCommand?.trim() || process.env.PI_NOTIFY_SOUND_CMD?.trim();
+    return specificCommand?.trim() || process.env.PI_NOTIFY_SOUND_CMD?.trim();
+}
+
+function runSoundHook(outcome: NotificationOutcome): void {
+    const command = soundCommand(outcome);
     if (!command) return;
 
     try {
         const { spawn } = require("node:child_process");
         const child = spawn(command, {
             shell: true,
-            detached: true,
             stdio: "ignore",
             windowsHide: process.platform === "win32",
         });
+        // spawn reports launch failures asynchronously, outside the try/catch.
+        child.on("error", () => {});
         child.unref();
     } catch {
         // Ignore hook errors to avoid breaking notifications
@@ -87,7 +99,8 @@ function notify(title: string, body: string, outcome: NotificationOutcome): void
     const isIterm2 = process.env.TERM_PROGRAM === "iTerm.app" || Boolean(process.env.ITERM_SESSION_ID);
 
     if (process.env.WT_SESSION) {
-        notifyWindows(title, body);
+        // Use only the configured audio, without an overlapping Windows chime.
+        notifyWindows(title, body, Boolean(soundCommand(outcome)));
     } else if (process.env.KITTY_WINDOW_ID) {
         notifyOSC99(title, body);
     } else if (isIterm2) {

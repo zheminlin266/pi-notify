@@ -14,6 +14,8 @@ Compared with the earlier `agent_end`-only behavior described by the upstream RE
 - **Correct lifecycle documentation** — the README now explains that `agent_end` records the result and `agent_settled` triggers the notification.
 - **Outcome-specific sound hooks** — completion and interruption can use separate commands, while `PI_NOTIFY_SOUND_CMD` remains the fallback for existing configurations.
 - **Hidden Windows sound console** — Windows console windows are hidden when sound commands run in the background.
+- **OpenCode audio asset** — includes the verified `bip-bop-01.mp3` for file-based completion/interruption hooks, with its MIT notice and source hash.
+- **No overlapping Windows chime** — when a custom sound hook is configured, the Windows toast is silent. Player launch failures cannot crash Pi.
 
 Terminal protocol detection and tmux passthrough are inherited from the original project. This maintained version extends the original optional sound hook with separate completion and interruption commands.
 
@@ -37,7 +39,7 @@ Terminal protocol detection and tmux passthrough are inherited from the original
 | Ghostty, WezTerm, rxvt-unicode, and compatible terminals | OSC 777 |
 | tmux | Automatic DCS passthrough wrapping |
 
-Terminal notification support and notification permissions must be enabled in your terminal and operating system. Windows Terminal notifications require `powershell.exe`; this normally also works from WSL when Windows interop is enabled.
+The notification lifecycle is tested against Pi 1.0.0 (`agent_end`, `agent_settled`, and `ctx.hasUI`). Terminal notification support and notification permissions must be enabled in your terminal and operating system. Windows Terminal notifications require `powershell.exe`; this normally also works from WSL when Windows interop is enabled.
 
 ## Install
 
@@ -58,7 +60,7 @@ Restart Pi after installation.
 
 ## Optional sound
 
-Set these environment variables to any shell command. Each command is spawned as a detached background process after the desktop notification; on Windows, its console window is hidden:
+Set these environment variables to any shell command. Each command is spawned asynchronously after the desktop notification; on Windows, its console window is hidden:
 
 - `PI_NOTIFY_SOUND_COMPLETE_CMD` — played when the conversation completes normally.
 - `PI_NOTIFY_SOUND_INTERRUPTED_CMD` — played when the task is interrupted, such as with `Esc`.
@@ -73,12 +75,20 @@ export PI_NOTIFY_SOUND_INTERRUPTED_CMD='afplay /System/Library/Sounds/Basso.aiff
 export PI_NOTIFY_SOUND_COMPLETE_CMD='paplay /usr/share/sounds/freedesktop/stereo/complete.oga'
 export PI_NOTIFY_SOUND_INTERRUPTED_CMD='paplay /usr/share/sounds/freedesktop/stereo/dialog-error.oga'
 
-# Windows PowerShell (requires ffplay)
-$env:PI_NOTIFY_SOUND_COMPLETE_CMD = 'ffplay -nodisp -autoexit -loglevel quiet -f lavfi -i "sine=frequency=600:duration=0.12[s1];anullsrc=r=44100:cl=mono:d=0.08[silence];sine=frequency=600:duration=0.12[s2];[s1][silence][s2]concat=n=3:v=0:a=1" -af "volume=1.0"'
-$env:PI_NOTIFY_SOUND_INTERRUPTED_CMD = 'ffplay -nodisp -autoexit -loglevel quiet -f lavfi -i "sine=frequency=220:duration=0.40" -af "volume=1.2"'
+# Windows PowerShell (requires ffplay; adjust the repository path)
+$env:PI_NOTIFY_SOUND_COMPLETE_CMD = 'ffplay -nodisp -autoexit -loglevel quiet -volume 100 "D:\Projects\pi-notify\sounds\bip-bop-01.mp3"'
+$env:PI_NOTIFY_SOUND_INTERRUPTED_CMD = $env:PI_NOTIFY_SOUND_COMPLETE_CMD
+
+# Optional: persist for newly started shells/Pi processes
+[Environment]::SetEnvironmentVariable('PI_NOTIFY_SOUND_COMPLETE_CMD', $env:PI_NOTIFY_SOUND_COMPLETE_CMD, 'User')
+[Environment]::SetEnvironmentVariable('PI_NOTIFY_SOUND_INTERRUPTED_CMD', $env:PI_NOTIFY_SOUND_INTERRUPTED_CMD, 'User')
 ```
 
-Add the settings to your shell profile to keep them across sessions. Leave them unset for silent notifications.
+Add the settings to your shell profile to keep them across sessions. Leave them unset to disable the custom sound hook (the OS/terminal may still play its own notification sound). Windows toasts are silent while a custom sound hook is configured.
+
+The bundled MP3 matches OpenCode 2.0.20's main-session completion/interruption sound. `-volume 100` keeps its original level, matching the user's OpenCode `attention.volume = 1` without amplification. It does not set Windows master volume; application mixer levels can differ. Asset provenance is recorded in [`sounds/README.md`](sounds/README.md).
+
+Changing persistent environment variables does not update already-running shells or Pi. Start a fresh terminal and Pi process to use the new values; `/reload` alone reloads code, not inherited environment variables.
 
 ## How it works
 
@@ -97,6 +107,8 @@ pi -e ./index.ts
 ```
 
 Package metadata is declared under the `pi.extensions` field in [`package.json`](package.json).
+
+Run `npm test` with Node.js 24+ for a dependency-free smoke test. It checks notification timing, sound selection, headless sessions, silent Windows toasts, asynchronous player failures, and the bundled audio hash without playing sounds.
 
 ## pi.dev availability
 
