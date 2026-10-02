@@ -1,7 +1,10 @@
 {
   "name": "pi-notify",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Desktop notifications when Pi is settled and ready for input",
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning test.mjs"
+  },
   "keywords": [
     "pi-package",
     "pi",
@@ -24,6 +27,8 @@
   },
   "files": [
     "index.ts",
+    "test.mjs",
+    "sounds",
     "README.md",
     "README.zh-CN.md",
     "LICENSE",
